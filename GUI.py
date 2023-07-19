@@ -19,7 +19,7 @@ from PIL import Image
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from collections import defaultdict
-
+import time
 # Disables console logs to improve speed
 logging.disable(logging.INFO)
 
@@ -147,13 +147,13 @@ WINDOW_NAME = "Video Scanner"
 class GUI(tk.Tk):
     # Select video ?
     def show_frame(self):
-        # if self.firstTime:
-        #     self.cap = cv2.VideoCapture(self.file)
-        #     self.firstTime = False
+        global prev_detections, prev_confidence_scores, car_counter
+        self.cap = cv2.VideoCapture(self.file)
         _, frame = self.cap.read()
-        frame = cv2.flip(frame, 1)
-        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+        # frame = cv2.flip(frame, 1)
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+        # global model
         results = model.predict(img)
 
         new_detections = defaultdict(dict)  # Dictionary to store current frame's detections for each car ID
@@ -216,14 +216,12 @@ class GUI(tk.Tk):
         prev_detections = new_detections  # Update the previous detections for the next frame
 
         frame = annotator.result()
-        cv2.imshow(WINDOW_NAME, frame)
+        # cv2.imshow(WINDOW_NAME, frame)
 
-        if cv2.waitKey(1) & 0xFF == ord(' '):
-            return
+        # if cv2.waitKey(1) & 0xFF == ord(' '):
+        #     return
 
-
-
-        displayImg = Image.fromarray(img)
+        displayImg = Image.fromarray(frame)
         imgtk = ImageTk.PhotoImage(image=displayImg)
         self.display1.imgtk = imgtk #Shows frame for display 1
         self.display1.configure(image=imgtk)
@@ -231,10 +229,11 @@ class GUI(tk.Tk):
 
     def prompt_video(self):
         self.file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Video", filetypes=(("mp4 files", "*.mp4"), ("all files", "*.*")))
+        print(self.file)
         split = self.file.split('/')[-2:]
         self.file_dir = "Current video selected: " + (".../" + split[0] + "/" + split[1])
         self.selected_file.configure(text=self.file_dir)
-        self.cap = cv2.VideoCapture(self.file)
+        # time.sleep(2.5)
         self.show_frame()
 
     def detect():
@@ -243,7 +242,6 @@ class GUI(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
 
-        self.firstTime = True
         self.config(background=background)
         # canvas = tk.Canvas(self, width=800, height=300)
         # canvas.pack()
@@ -267,9 +265,9 @@ class GUI(tk.Tk):
         body_menu = OptionMenu(self, initial_body, *body_types)
         body_menu.pack()
 
-        imageFrame = tk.Frame(self, width=600, height=500)
-        imageFrame.pack()
-        self.display1 = tk.Label(imageFrame)
+        # imageFrame = tk.Frame(self, width=600, height=500)
+        # imageFrame.pack()
+        self.display1 = tk.Label()
         self.display1.pack()
 
         video_select = Button(self, text='SELECT VIDEO', command=self.prompt_video, background=text_background)

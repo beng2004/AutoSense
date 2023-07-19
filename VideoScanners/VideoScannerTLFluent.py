@@ -77,7 +77,7 @@ class NET(nn.Module):
 color_classifier = NET()
 
 
-color_classifier.load_state_dict(torch.load("C:/Users/benjamin.guerrieri/Documents/AutoSenseBackup/Models/color_model.pt"))
+color_classifier.load_state_dict(torch.load("./Models/color_model.pt"))
 
 
 # Identifies classes to be searched for that the model was trained on
@@ -95,7 +95,7 @@ num_ftrs = classifier.fc.in_features
 classifier.fc = nn.Linear(num_ftrs, len(classes))
 
 # Loads the model that is trained on our data
-classifier.load_state_dict(torch.load("C:/Users/benjamin.guerrieri/Documents/AutoSenseBackup/Models/car_model_TL.pt"))
+classifier.load_state_dict(torch.load("./Models/car_model_TL.pt"))
 
 def get_probs(output):
     probs = nn.functional.softmax(output, dim=1)
@@ -127,8 +127,8 @@ def predict(img):
 WINDOW_NAME = "Video Classifier"
 model = YOLO('./YOLOModels/yolov8n.pt')
 
-cap = cv2.VideoCapture("./TestVideos/TargetVideo.mp4")
-cap.set(cv2.CAP_PROP_POS_FRAMES, 3050)
+cap = cv2.VideoCapture("C:/Users/matthew.hui/Documents/AutoSense _old/vid.mp4")
+# cap.set(cv2.CAP_PROP_POS_FRAMES, 3050)
 
 # Fullscreen
 cv2.namedWindow(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN)
