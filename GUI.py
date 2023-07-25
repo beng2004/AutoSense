@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import filedialog
+from tkinter.font import Font
 import numpy as np
 import cv2
 from PIL import Image, ImageTk
@@ -120,58 +121,80 @@ def predict(img):
 
 
 const_title = "AutoSense"
-font = ""
+font = "Calibri"
 background = "#FFFFFF"
-text_background = "#FFFFFF" 
 
 WINDOW_NAME = "Video Scanner"
+prev_width, prev_height = 0, 0
+first_frame = True
 
 # Create the tkinter application
 class VideoClassifierApp:
     def __init__(self, root, video_source):
+        # Fullscreen
+        # root.attributes("-fullscreen", True)
+
         self.root = root
-        self.root.title("Video Classifier")
+        self.root.title("AutoSense")
 
-        # self.config(background=background)
+        # self.root.config(background=background)
+ 
+        main_container = tk.Frame(root)
+        # main_container.pack(fill='both', expand=True, padx=(60, 0), pady=40)
+        main_container.place(relx=0.5, rely=0.5, anchor=CENTER)
+        # main_container.pack_propagate(False)
 
-        self.title = tk.Label(text=const_title, background=text_background)
-        self.title.pack()
-
-        self.counter = 0
+        self.title = tk.Label(main_container, text=const_title)
+        self.title.config(font=(font, 35))
+        self.title.pack(anchor='w')
 
         self.file = ""
-        self.selected_file = tk.Label(text="Current video selected: ", background=text_background)
-        self.selected_file.pack()
+        self.selected_file = tk.Label(main_container, text="Current video selected:    ")
+        self.selected_file.config(font=(font, 14))
+        self.selected_file.pack(anchor='w')
+
+        content_container = tk.Frame(main_container)
+        content_container.pack(anchor='w')
+
+        self.background = tk.Label(content_container, background="#A9B0BA", width=120, height=40)
+        # self.background.configure(image=ImageTk.PhotoImage(Image.open('C:/Users/matthew.hui/Documents/AutoSense/Utilities/blackBackground.png')))
+        self.background.pack(fill=tk.BOTH, expand=True, side='left', padx=(0, 30), pady=20)
+        self.background.pack_propagate(False)
+        # self.background.pack(anchor='w', side='left', padx=(0, 50), pady=20)
+
+        right_container = tk.Frame(content_container)
+        right_container.pack(anchor='e', side='left')
 
         self.initial_color = StringVar()
         self.initial_color.set(colors[2]) # Default value of Blue
-
-        self.color_menu = OptionMenu(self.root, self.initial_color, *colors)
-        self.color_menu.pack()
-
         self.initial_body = StringVar()
         self.initial_body.set(body_types[2])
 
-        self.body_menu = OptionMenu(self.root, self.initial_body, *body_types)
-        self.body_menu.pack()
+        self.color_menu = OptionMenu(right_container, self.initial_color, *colors)
+        self.color_menu.config(font=(font, 12))
+        self.color_menu.pack(pady=10)
+
+        self.body_menu = OptionMenu(right_container, self.initial_body, *body_types)
+        self.body_menu.config(font=(font, 12))
+        self.body_menu.pack(pady=10)
+
+        self.start_detection = Button(right_container, text='BEGIN DETECTION', command=self.detect)
+        self.start_detection.config(font=(font, 12))
+        self.start_detection.pack(pady=10)
 
         self.video_source = video_source
         self.model = YOLO('./YOLOModels/yolov8n.pt')
 
-        black = Image.open('C:/Users/matthew.hui/Documents/AutoSense/Utilities/blackBackground.png')
-        blacker = ImageTk.PhotoImage(black)
-        self.background = tk.Label(self.root, background="#000000")
-        # self.background.configure(image=ImageTk.PhotoImage(Image.open('C:/Users/matthew.hui/Documents/AutoSense/Utilities/blackBackground.png')))
-        self.background.pack(fill=tk.BOTH, expand=True)
+        # bottom_container = tk.Frame(main_container)
+        # bottom_container.pack(side='bottom', padx=10)
 
-        self.video_select = Button(self.root, text='SELECT VIDEO', command=self.prompt_video, background=text_background)
-        self.video_select.pack()
-
-        self.start_detection = Button(self.root, text='BEGIN DETECTION', command=self.detect, background=text_background)
-        self.start_detection.pack()
-
-        # Fullscreen
-        # root.attributes("-fullscreen", True)
+        self.video_select = Button(main_container, text='SELECT VIDEO', command=self.prompt_video)
+        self.video_select.config(font=(font, 12))
+        self.video_select.pack(side='left', padx=(0, 20))
+        
+        self.img_select = Button(main_container, text='SELECT IMAGE', command=self.prompt_video)
+        self.img_select.config(font=(font, 12))
+        self.img_select.pack(side='left', padx=(0, 20))
 
         self.prev_detections = defaultdict(dict)
         self.car_counter = 0
@@ -269,8 +292,16 @@ class VideoClassifierApp:
                 frame = annotator.result()
 
             # picsize = self.canvas.size
-            screen_width = int(root.winfo_width() // 1.5)
-            screen_height = int(root.winfo_height() // 1.5)
+            global first_frame, prev_width, prev_height
+            if first_frame:
+                prev_width = int(root.winfo_width() // 1.5)
+                prev_height = int(root.winfo_height() // 1.5)
+                first_frame = False
+
+            screen_width = int(root.winfo_width() // 1.5) if prev_width != int(root.winfo_width() // 1.5) else prev_width
+            screen_height = int(root.winfo_height() // 1.5) if prev_height !=  int(root.winfo_height() // 1.5) else prev_height
+            # screen_width = 900
+            # screen_height = 400
             # processed_frame = self.resize_with_aspect_ratio(Image.fromarray(frame), 400)
             processed_frame = Image.fromarray(frame).resize((screen_width, screen_height), Image.ANTIALIAS)
             self.photo = ImageTk.PhotoImage(image=processed_frame)
@@ -278,7 +309,7 @@ class VideoClassifierApp:
             # self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
             self.background.configure(image=self.photo, height=screen_height, width=screen_width)
 
-        self.root.after(20, self.update)
+        self.root.after(3, self.update)
 
     def close(self):
         self.cap.release()
