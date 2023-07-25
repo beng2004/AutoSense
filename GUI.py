@@ -119,25 +119,20 @@ def predict(img):
 
     return str(colors[color_output]).title() + " " + str(body_types[output]) + " " + prob + "%"
 
-
 const_title = "AutoSense"
 font = "Calibri"
 background = "#FFFFFF"
-
-WINDOW_NAME = "Video Scanner"
 prev_width, prev_height = 0, 0
 first_frame = True
 
 # Create the tkinter application
 class VideoClassifierApp:
-    def __init__(self, root, video_source):
+    def __init__(self, root):
         # Fullscreen
         # root.attributes("-fullscreen", True)
 
         self.root = root
-        self.root.title("AutoSense")
-
-        # self.root.config(background=background)
+        self.root.title(const_title)
  
         main_container = tk.Frame(root)
         # main_container.pack(fill='both', expand=True, padx=(60, 0), pady=40)
@@ -148,10 +143,15 @@ class VideoClassifierApp:
         self.title.config(font=(font, 35))
         self.title.pack(anchor='w')
 
-        self.file = ""
-        self.selected_file = tk.Label(main_container, text="Current video selected:    ")
-        self.selected_file.config(font=(font, 14))
-        self.selected_file.pack(anchor='w')
+        self.video_file = ""
+        self.selected_video = tk.Label(main_container, text="Current video selected:    ")
+        self.selected_video.config(font=(font, 14))
+        self.selected_video.pack(anchor='w')
+
+        self.image_file = ""
+        self.selected_image = tk.Label(main_container, text="Current image selected:    ")
+        self.selected_image.config(font=(font, 14))
+        self.selected_image.pack(anchor='w')
 
         content_container = tk.Frame(main_container)
         content_container.pack(anchor='w')
@@ -182,17 +182,13 @@ class VideoClassifierApp:
         self.start_detection.config(font=(font, 12))
         self.start_detection.pack(pady=10)
 
-        self.video_source = video_source
         self.model = YOLO('./YOLOModels/yolov8n.pt')
-
-        # bottom_container = tk.Frame(main_container)
-        # bottom_container.pack(side='bottom', padx=10)
 
         self.video_select = Button(main_container, text='SELECT VIDEO', command=self.prompt_video)
         self.video_select.config(font=(font, 12))
         self.video_select.pack(side='left', padx=(0, 20))
         
-        self.img_select = Button(main_container, text='SELECT IMAGE', command=self.prompt_video)
+        self.img_select = Button(main_container, text='SELECT IMAGE', command=self.prompt_image)
         self.img_select.config(font=(font, 12))
         self.img_select.pack(side='left', padx=(0, 20))
 
@@ -201,13 +197,26 @@ class VideoClassifierApp:
         self.threshold_distance = 50
 
     def prompt_video(self):
-        self.file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Video", filetypes=(("mp4 files", "*.mp4"), ("all files", "*.*")))
-        split = self.file.split('/')[-2:]
-        self.file_dir = "Current video selected: " + (".../" + split[0] + "/" + split[1])
-        self.selected_file.configure(text=self.file_dir)
+        self.video_file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Video", filetypes=(("mp4 files", "*.mp4"), ("all files", "*.*")))
+        print(self.video_file)
+        
+        split = self.video_file.split('/')[-2:]
+        file_dir = "Current video selected: " + (".../" + split[0] + "/" + split[1])
+        self.selected_video.configure(text=file_dir)
         # time.sleep(2.5)
-        self.cap = cv2.VideoCapture(self.video_source)
+        self.cap = cv2.VideoCapture(self.video_file)
         self.update()
+
+    def prompt_image(self):
+        self.image_file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Image", filetypes=(("jpg files", "*.jpg"), ("all files", "*.*")))
+        split = self.image_file.split('/')[-2:]
+        file_dir = "Current image selected: " + (".../" + split[0] + "/" + split[1])
+        self.selected_image.configure(text=file_dir)
+
+        self.process_image()
+        # time.sleep(2.5)
+        # self.cap = cv2.VideoCapture(self.video_source)
+        # self.update()
 
     def detect():
         print("detecting")
@@ -222,17 +231,39 @@ class VideoClassifierApp:
     # Pass in a PIL image
     def resize_with_aspect_ratio(self, image, desired_height):
         width, height = image.size 
-
-        # if width > max_width or height > max_height:
-        #     ratio = min(max_width / width, max_height / height)
-        #     new_width = int(width * ratio)
-        #     new_height = int(width * ratio)
-
         ratio = width // height
         new_width = ratio * desired_height
 
         return image.resize((new_width, desired_height), Image.ANTIALIAS)
-        # return image
+
+    def process_image(self):
+        img = cv2.imread(self.image_file)
+
+        frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = self.model.predict(frame)
+
+        for r in results:
+            annotator = Annotator(img)
+            boxes = r.boxes
+
+            for j, box in enumerate(boxes):
+                b = box.xyxy[0].tolist()  # get box coordinates in (top, left, bottom, right) format
+                class_id = r.names[box.cls[0].item()]
+                if str(class_id) == "car" or str(class_id) == "bus" or str(class_id) == "truck":    
+                    im_pil = Image.fromarray(frame)
+                    im_pil = im_pil.crop([round(x) for x in b])
+                    corner = [round(b[0]), round(b[1])]
+                    c = predict(im_pil)
+
+                    annotator.box_label(b, c)    
+                    img = annotator.result()
+
+        img_width = int(root.winfo_width() // 1.5)
+        img_height = int(root.winfo_height() // 1.5)
+
+        processed_img = Image.fromarray(img).resize((img_width, img_height), Image.ANTIALIAS)
+        self.photo = ImageTk.PhotoImage(image=processed_img)
+        self.background.config(image=self.photo, width=img_width, height=img_height)
 
     def update(self):
         frame = self.get_frame()
@@ -309,7 +340,13 @@ class VideoClassifierApp:
             # self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
             self.background.configure(image=self.photo, height=screen_height, width=screen_width)
 
-        self.root.after(3, self.update)
+        global update_id
+        update_id = self.root.after(30, self.update)
+
+    def stop_update(self):
+        print("STOPPING UPDATE")
+        if update_id:
+            self.root.after_cancel(update_id)
 
     def close(self):
         self.cap.release()
@@ -317,5 +354,6 @@ class VideoClassifierApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = VideoClassifierApp(root, "C:/Users/matthew.hui/Documents/AutoSense _old/20230711_122653.mp4")
+    app = VideoClassifierApp(root)
+    root.bind("<space>", VideoClassifierApp.stop_update)
     root.mainloop()
