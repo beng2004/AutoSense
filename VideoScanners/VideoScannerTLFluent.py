@@ -211,3 +211,140 @@ while True:
         break
 
 cap.release()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from ultralytics import YOLO
+import logging 
+import cv2
+import torch.nn as nn
+import torch
+import torchvision
+from torchvision import transforms, models
+from PIL import Image
+import numpy as np
+from collections import defaultdict
+
+# Disables console logs to improve speed
+logging.disable(logging.INFO)
+
+colors = ['beige', 'black', 'blue', 'brown', 'gold', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'silver', 'tan', 'white', 'yellow']
+
+color_transformer = transforms.Compose([
+    transforms.Resize((64, 64)),
+    transforms.ToTensor()
+])
+
+class NET(nn.Module):
+    def __init__(self):
+        super(NET, self).__init__()
+        # Model architecture remains the same (as in the original script)
+
+# Initialize color classifier and load state dict
+color_classifier = NET()
+color_classifier.load_state_dict(torch.load("./Models/color_model.pt"))
+color_classifier.eval()
+
+# Identifies classes to be searched for that the model was trained on
+classes = ['Convertible', 'Coupe', 'Minivan', 'SUV', 'Sedan', 'Truck', 'Van']
+
+# Declares a transformer to make all images fit the input size of the trained model
+transformer = torchvision.transforms.Compose([
+    transforms.Resize(size=(int(224), int(224))),
+    transforms.ToTensor(),
+])
+
+# Transfer Learning Model
+classifier = models.resnet34()
+num_ftrs = classifier.fc.in_features
+classifier.fc = nn.Linear(num_ftrs, len(classes))
+
+# Loads the model that is trained on our data
+classifier.load_state_dict(torch.load("./Models/car_model_TL.pt"))
+classifier.eval()
+
+def get_probs(output):
+    probs = nn.functional.softmax(output, dim=1)
+    probs = probs.tolist()
+    p = max(probs[0])
+    p = p * 100
+    return str(format(p, '.1f'))
+
+def predict(img):
+    color_img = color_transformer(img).unsqueeze(0).float()
+    img_normalized = transformer(img).unsqueeze(0).float()
+
+    with torch.no_grad():
+        output = classifier(img_normalized)
+        color_output = color_classifier(color_img)
+
+    prob = get_probs(output)
+    output = torch.argmax(output, dim=1)
+    color_output = torch.argmax(color_output, dim=1)
+
+    return f"{colors[color_output.item()].title()} {classes[output.item()]} {prob}%"
+
+WINDOW_NAME = "Video Classifier"
+model = YOLO('./YOLOModels/yolov8n.pt')
+
+cap = cv2.VideoCapture("C:/Users/matthew.hui/Documents/AutoSense _old/vid.mp4")
+# cap.set(cv2.CAP_PROP_POS_FRAMES, 3050)
+
+# Fullscreen
+cv2.namedWindow(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+prev_detections = defaultdict(dict)  # Dictionary to store previous frame's detections for each car ID
+threshold_distance = 50  # Threshold for matching previous and current detections
+confidence_threshold = 80.0
+while True:
+    _, frame = cap.read()
+    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = model.predict(img)
+
+    new_detections = defaultdict(dict)  # Dictionary to store current frame's detections for each car ID
+    for r in results:
+        annotator = Annotator(frame)
+        boxes = r.boxes
+
+        # ... (same code as the previous script for object tracking)
+
+    # Perform reclassification every 10 frames
+    if len(results) > 0:
+        if len(results[0].names) > 0 and "car" in results[0].names:
+            reclassify_counter += 1
+            if reclassify_counter == 10:
+                for car_id, detection in prev_detections.items():
+                    b = detection['box'].xyxy[0].tolist()
+                    im_pil = Image.fromarray(img)
+                    im_pil = im_pil.crop([round(x) for x in b])
+                    c = predict(im_pil)
+                    new_detections[car_id]['label'] = c
+                    new_detections[car_id]['center'] = np.array([(b[2] + b[0]) / 2, (b[3] + b[1]) / 2])
+
+                reclassify_counter = 0  # Reset the reclassify counter
+
+    prev_detections = new_detections  # Update the previous detections for the next frame
+
+    frame = annotator.result()
+    cv2.imshow(WINDOW_NAME, frame)
+
+    if cv2.waitKey(1) & 0xFF == ord(' '):
+        break
+
+cap.release()
