@@ -266,99 +266,98 @@ class VideoClassifierApp:
         self.background.config(image=self.photo, width=img_width, height=img_height)
 
     def update(self):
-        while True:
-            frame = self.get_frame()
+        frame = self.get_frame()
 
-            if frame is not None:
-                img = Image.fromarray(frame)
-                results = self.model.predict(frame)
+        if frame is not None:
+            img = Image.fromarray(frame)
+            results = self.model.predict(frame)
 
-                new_detections = defaultdict(dict)
-                for r in results:
-                    annotator = Annotator(frame)
-                    boxes = r.boxes
+            new_detections = defaultdict(dict)
+            for r in results:
+                annotator = Annotator(frame)
+                boxes = r.boxes
 
-                    num_prev_detections = len(self.prev_detections)
-                    num_current_detections = len(boxes)
-                    distance_matrix = np.zeros((num_prev_detections, num_current_detections))
+                num_prev_detections = len(self.prev_detections)
+                num_current_detections = len(boxes)
+                distance_matrix = np.zeros((num_prev_detections, num_current_detections))
 
-                    for i, (prev_id, prev_detection) in enumerate(self.prev_detections.items()):
-                        for j, box in enumerate(boxes):
-                            b = box.xyxy[0].tolist()
-                            current_center = np.array([(b[2] + b[0]) / 2, (b[3] + b[1]) / 2])
-                            prev_center = prev_detection['center']
-                            distance = np.linalg.norm(current_center - prev_center)
-                            distance_matrix[i, j] = distance
-
-                    prev_indices, current_indices = linear_sum_assignment(distance_matrix)
-                    used_current_indices = set()
-
-                    for i, prev_idx in enumerate(prev_indices):
-                        current_idx = current_indices[i]
-                        if distance_matrix[prev_idx, current_idx] > self.threshold_distance:
-                            continue
-
-                        used_current_indices.add(current_idx)
-                        prev_id = list(self.prev_detections.keys())[prev_idx]
-                        car_id = prev_id
-                        new_detections[car_id] = self.prev_detections[prev_id]
-
-                        b = boxes[current_idx].xyxy[0].tolist()
-                        target_car = " ".join(str(x) for x in new_detections[car_id]['label'].split()[0:2]).upper() #COLOR BODY
-
-                        
-                        if target_car == self.initial_color.get().upper() + " " + self.initial_body.get().upper():
-                            annotator.box_label(b, new_detections[car_id]['label'], color=(200,0,0))
-                        else:
-                            annotator.box_label(b, new_detections[car_id]['label'] )
+                for i, (prev_id, prev_detection) in enumerate(self.prev_detections.items()):
                     for j, box in enumerate(boxes):
-                        if j not in used_current_indices:
-                            b = box.xyxy[0].tolist()
-                            car_id = str(self.car_counter)
-                            self.car_counter += 1
-                            im_pil = Image.fromarray(frame)
-                            im_pil = im_pil.crop([round(x) for x in b])
-                            class_id = r.names[box.cls[0].item()]
-                            if str(class_id) == "car" or str(class_id) == "bus" or str(class_id) == "truck":
-                                c = predict(im_pil)
+                        b = box.xyxy[0].tolist()
+                        current_center = np.array([(b[2] + b[0]) / 2, (b[3] + b[1]) / 2])
+                        prev_center = prev_detection['center']
+                        distance = np.linalg.norm(current_center - prev_center)
+                        distance_matrix[i, j] = distance
+
+                prev_indices, current_indices = linear_sum_assignment(distance_matrix)
+                used_current_indices = set()
+
+                for i, prev_idx in enumerate(prev_indices):
+                    current_idx = current_indices[i]
+                    if distance_matrix[prev_idx, current_idx] > self.threshold_distance:
+                        continue
+
+                    used_current_indices.add(current_idx)
+                    prev_id = list(self.prev_detections.keys())[prev_idx]
+                    car_id = prev_id
+                    new_detections[car_id] = self.prev_detections[prev_id]
+
+                    b = boxes[current_idx].xyxy[0].tolist()
+                    target_car = " ".join(str(x) for x in new_detections[car_id]['label'].split()[0:2]).upper() #COLOR BODY
+
+                    
+                    if target_car == self.initial_color.get().upper() + " " + self.initial_body.get().upper():
+                        annotator.box_label(b, new_detections[car_id]['label'], color=(200,0,0))
+                    else:
+                        annotator.box_label(b, new_detections[car_id]['label'] )
+                for j, box in enumerate(boxes):
+                    if j not in used_current_indices:
+                        b = box.xyxy[0].tolist()
+                        car_id = str(self.car_counter)
+                        self.car_counter += 1
+                        im_pil = Image.fromarray(frame)
+                        im_pil = im_pil.crop([round(x) for x in b])
+                        class_id = r.names[box.cls[0].item()]
+                        if str(class_id) == "car" or str(class_id) == "bus" or str(class_id) == "truck":
+                            c = predict(im_pil)
 
 
-                                new_detections[car_id] = {'label': c, 'center': np.array([(b[2] + b[0]) / 2, (b[3] + b[1]) / 2])}
-                                target_car = " ".join(str(x) for x in new_detections[car_id]['label'].split()[0:2]).upper()
+                            new_detections[car_id] = {'label': c, 'center': np.array([(b[2] + b[0]) / 2, (b[3] + b[1]) / 2])}
+                            target_car = " ".join(str(x) for x in new_detections[car_id]['label'].split()[0:2]).upper()
 
-                                if target_car == self.initial_color.get().upper() + " " + self.initial_body.get().upper():
-                                    annotator.box_label(b, new_detections[car_id]['label'], color=(200,0,0))
-                                else:
-                                    annotator.box_label(b, new_detections[car_id]['label'] )
+                            if target_car == self.initial_color.get().upper() + " " + self.initial_body.get().upper():
+                                annotator.box_label(b, new_detections[car_id]['label'], color=(200,0,0))
+                            else:
+                                annotator.box_label(b, new_detections[car_id]['label'] )
 
-                    self.prev_detections = new_detections
-                    frame = annotator.result()
+                self.prev_detections = new_detections
+                frame = annotator.result()
 
-                # picsize = self.canvas.size
-                global first_frame, prev_width, prev_height
-                if first_frame:
-                    prev_width = int(root.winfo_width() // 1.5)
-                    prev_height = int(root.winfo_height() // 1.5)
-                    first_frame = False
+            # picsize = self.canvas.size
+            global first_frame, prev_width, prev_height
+            if first_frame:
+                prev_width = int(root.winfo_width() // 1.5)
+                prev_height = int(root.winfo_height() // 1.5)
+                first_frame = False
 
-                screen_width = int(root.winfo_width() // 1.5) if prev_width != int(root.winfo_width() // 1.5) else prev_width
-                screen_height = int(root.winfo_height() // 1.5) if prev_height !=  int(root.winfo_height() // 1.5) else prev_height
-                # screen_width = 900
-                # screen_height = 400
-                # processed_frame = self.resize_with_aspect_ratio(Image.fromarray(frame), 400)
-                processed_frame = Image.fromarray(frame).resize((screen_width, screen_height), Image.ANTIALIAS)
-                self.photo = ImageTk.PhotoImage(image=processed_frame)
-                
-                # self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
-                self.background.configure(image=self.photo, height=screen_height, width=screen_width)
+            screen_width = int(root.winfo_width() // 1.5) if prev_width != int(root.winfo_width() // 1.5) else prev_width
+            screen_height = int(root.winfo_height() // 1.5) if prev_height !=  int(root.winfo_height() // 1.5) else prev_height
+            # screen_width = 900
+            # screen_height = 400
+            # processed_frame = self.resize_with_aspect_ratio(Image.fromarray(frame), 400)
+            processed_frame = Image.fromarray(frame).resize((screen_width, screen_height), Image.ANTIALIAS)
+            self.photo = ImageTk.PhotoImage(image=processed_frame)
+            
+            # self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
+            self.background.configure(image=self.photo, height=screen_height, width=screen_width)
 
-        # global update_id
-        # update_id = self.root.after(10, self.update)
+        global update_id
+        update_id = self.root.after(10, self.update)
 
-    # def stop_update(self):
-    #     print("STOPPING UPDATE")
-    #     if update_id:
-    #         self.root.after_cancel(update_id)
+    def stop_update(self):
+        print("STOPPING UPDATE")
+        if update_id:
+            self.root.after_cancel(update_id)
 
     def close(self):
         self.cap.release()
@@ -367,5 +366,5 @@ class VideoClassifierApp:
 if __name__ == "__main__":
     root = tk.Tk()
     app = VideoClassifierApp(root)
-    # root.bind("<space>", VideoClassifierApp.stop_update)
+    root.bind("<space>", VideoClassifierApp.stop_update)
     root.mainloop()
