@@ -178,7 +178,7 @@ class VideoClassifierApp:
         self.body_menu.config(font=(font, 12))
         self.body_menu.pack(pady=10)
 
-        self.start_detection = Button(right_container, text='BEGIN DETECTION', command=self.detect)
+        self.start_detection = Button(right_container, text='STOP DETECTION', command=self.stop_update)
         self.start_detection.config(font=(font, 12))
         self.start_detection.pack(pady=10)
 
@@ -195,6 +195,7 @@ class VideoClassifierApp:
         self.prev_detections = defaultdict(dict)
         self.car_counter = 0
         self.threshold_distance = 160
+        self.loop_update = False
 
     def prompt_video(self):
         self.video_file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Video", filetypes=(("mp4 files", "*.mp4"), ("all files", "*.*")))
@@ -205,6 +206,7 @@ class VideoClassifierApp:
         self.selected_video.configure(text=file_dir)
         # time.sleep(2.5)
         self.cap = cv2.VideoCapture(self.video_file)
+        self.loop_update = True
         self.update()
 
     def prompt_image(self):
@@ -214,12 +216,6 @@ class VideoClassifierApp:
         self.selected_image.configure(text=file_dir)
 
         self.process_image()
-        # time.sleep(2.5)
-        # self.cap = cv2.VideoCapture(self.video_source)
-        # self.update()
-
-    def detect():
-        print("detecting")
 
     def get_frame(self):
         ret, frame = self.cap.read()
@@ -238,6 +234,7 @@ class VideoClassifierApp:
 
     def process_image(self):
         img = cv2.imread(self.image_file)
+        img_height, img_width, _ = img.shape
 
         frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.model.predict(frame)
@@ -258,12 +255,15 @@ class VideoClassifierApp:
                     annotator.box_label(b, c)    
                     img = annotator.result()
 
-        img_width = int(root.winfo_width() // 1.5)
-        img_height = int(root.winfo_height() // 1.5)
-
-        processed_img = Image.fromarray(img).resize((img_width, img_height), Image.ANTIALIAS)
+        bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        processed_img = Image.fromarray(bgr_img).resize((img_width, img_height), Image.ANTIALIAS)
         self.photo = ImageTk.PhotoImage(image=processed_img)
         self.background.config(image=self.photo, width=img_width, height=img_height)
+
+    # def stop_update(self):
+    #     print("stopping update")
+    #     if self.video_file:
+    #         self.loop_update = False
 
     def update(self):
         frame = self.get_frame()
