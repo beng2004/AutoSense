@@ -192,10 +192,24 @@ class VideoClassifierApp:
         self.img_select.config(font=(font, 12))
         self.img_select.pack(side='left', padx=(0, 20))
 
+        self.v = DoubleVar()
+        self.v.set(0)
+        self.scale = Scale(main_container, orient = HORIZONTAL, from_=0, to=100, variable= self.v, command=self.frame_switch, width=20, length=400)
+        self.scale.pack(side='left', padx=(0, 20))
+    
         self.prev_detections = defaultdict(dict)
         self.car_counter = 0
         self.threshold_distance = 160
         self.loop_update = False
+        
+        self.length = 0
+
+
+    def frame_switch(self, arg):
+        # print("boop")
+        relative_frame = (int(self.v.get()) * self.length)/100
+        # print(relative_frame)
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, relative_frame)
 
     def prompt_video(self):
         self.video_file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Video", filetypes=(("mp4 files", "*.mp4"), ("all files", "*.*")))
@@ -207,9 +221,10 @@ class VideoClassifierApp:
         # time.sleep(2.5)
         self.cap = cv2.VideoCapture(self.video_file)
         self.loop_update = True
+        self.length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.update()
-
     def prompt_image(self):
+
         self.image_file = filedialog.askopenfilename(initialdir="c:/Users/matthew.hui/Documents/AutoSense", title="Select Image", filetypes=(("jpg files", "*.jpg"), ("all files", "*.*")))
         split = self.image_file.split('/')[-2:]
         file_dir = "Current image selected: " + (".../" + split[0] + "/" + split[1])
@@ -267,6 +282,12 @@ class VideoClassifierApp:
 
     def update(self):
         frame = self.get_frame()
+        relative_slider_num = (self.cap.get(cv2.CAP_PROP_POS_FRAMES) * 100)/self.length
+
+        self.scale.set(float(relative_slider_num))
+        # self.scale.get(float(self.cap.get(cv2.CAP_PROP_POS_FRAMES)))
+        # print(self.v)
+        # self.cap.set(cv2.CAP_PROP_POS_FRAMES, int(self.v.get()))
 
         if frame is not None:
             img = Image.fromarray(frame)
