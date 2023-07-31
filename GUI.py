@@ -267,7 +267,12 @@ class VideoClassifierApp:
                     corner = [round(b[0]), round(b[1])]
                     c = predict(im_pil)
 
-                    annotator.box_label(b, c)    
+                    target_car = " ".join(str(x) for x in c.split()[0:2]).upper() #COLOR BODY
+
+                    if target_car == self.initial_color.get().upper() + " " + self.initial_body.get().upper():
+                        annotator.box_label(b, c, color=(0,0,200))
+                    else:
+                        annotator.box_label(b, c) 
                     img = annotator.result()
 
         bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
